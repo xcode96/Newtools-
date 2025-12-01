@@ -8,10 +8,11 @@ interface CheatSheetViewerProps {
   onClose: () => void;
 }
 
-// Helper to parse basic markdown (bold) and apply color
+// Helper to parse basic markdown (bold, inline code) and apply color
 const MarkdownText: React.FC<{ text: string }> = ({ text }) => {
   if (!text) return null;
-  const parts = text.split(/(\*\*.*?\*\*)/g);
+  // Split by bold (**...**) or inline code (`...`)
+  const parts = text.split(/(\*\*.*?\*\*|`.*?`)/g);
   return (
     <span>
       {parts.map((part, i) => {
@@ -20,6 +21,13 @@ const MarkdownText: React.FC<{ text: string }> = ({ text }) => {
             <strong key={i} className="font-extrabold text-indigo-600 not-italic">
               {part.slice(2, -2)}
             </strong>
+          );
+        }
+        if (part.startsWith('`') && part.endsWith('`')) {
+          return (
+            <code key={i} className="font-mono text-sm bg-slate-100 text-pink-600 px-1.5 py-0.5 rounded border border-slate-200 mx-0.5 break-words">
+              {part.slice(1, -1)}
+            </code>
           );
         }
         return <span key={i}>{part}</span>;
@@ -41,6 +49,7 @@ const SyntaxHighlighter: React.FC<{ code: string }> = ({ code }) => {
         else if (part.includes('http') || part.includes('*')) className = "text-sky-300 underline decoration-sky-300/30"; // URLs/Globs
         else if (part === 'OR' || part === '|') className = "text-red-400 font-black"; // Logical operators
         else if (part.match(/^\d+(\.\d+)*$/) || part.includes('/')) className = "text-violet-400 font-bold"; // IPs / Numbers
+        else if (part.startsWith('"') || part.startsWith("'")) className = "text-lime-300"; // Strings
         
         return (
           <span key={i} className={className}>
@@ -55,13 +64,19 @@ const SyntaxHighlighter: React.FC<{ code: string }> = ({ code }) => {
 const ContentRenderer: React.FC<{ item: CheatSheetItem }> = ({ item }) => {
   switch (item.type) {
     case 'text':
-      return <p className="text-slate-600 mb-4 leading-relaxed max-w-4xl text-base">{item.value}</p>;
+      return (
+        <div className="text-slate-600 mb-4 leading-relaxed max-w-4xl text-base">
+          <MarkdownText text={item.value || ''} />
+        </div>
+      );
     
     case 'note':
       return (
         <div className="mb-4 p-4 bg-amber-50 border-l-4 border-amber-400 rounded-r-lg flex gap-3 text-amber-900 shadow-sm">
           <AlertCircle size={20} className="shrink-0 text-amber-500" />
-          <p className="text-sm font-medium leading-relaxed">{item.value}</p>
+          <div className="text-sm font-medium leading-relaxed">
+             <MarkdownText text={item.value || ''} />
+          </div>
         </div>
       );
 

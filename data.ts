@@ -1,3 +1,4 @@
+
 import { Tool } from './types';
 
 export const toolsData: Tool[] = [
@@ -7,6 +8,27 @@ export const toolsData: Tool[] = [
     type: 'CLI / GUI',
     description: 'A powerful network scanner for security auditing and discovery.',
     tags: ['port scanning', 'os detection', 'network mapping']
+  },
+  {
+    id: 'netbios',
+    name: 'NetBIOS',
+    type: 'CLI',
+    description: 'Network Basic Input/Output System protocol reference and enumeration tools.',
+    tags: ['windows', 'enumeration', 'legacy', 'protocol']
+  },
+  {
+    id: 'jq',
+    name: 'JQ (JSON)',
+    type: 'CLI',
+    description: 'A lightweight and flexible command-line JSON processor.',
+    tags: ['json', 'parser', 'scripting']
+  },
+  {
+    id: 'markdown',
+    name: 'Markdown',
+    type: 'Library',
+    description: 'A lightweight markup language for creating formatted text using a plain-text editor.',
+    tags: ['documentation', 'syntax', 'writing']
   },
   {
     id: 'ntopng',

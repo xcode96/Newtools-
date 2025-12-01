@@ -1,6 +1,167 @@
+
 import { CheatSheetData } from './types';
 
 export const cheatSheets: Record<string, CheatSheetData> = {
+  netbios: {
+    title: "NetBIOS Cheat Sheet",
+    description: "Complete Technical Reference for NetBIOS (Network Basic Input/Output System).",
+    sections: [
+      {
+        title: "1. NetBIOS Core Purpose",
+        content: [
+          { type: 'text', value: '**What NetBIOS Does:**' },
+          { type: 'text', value: 'NetBIOS is a legacy Windows API providing three distinct services:' },
+          { 
+            type: 'code', 
+            label: 'Core Services',
+            value: '• NAME RESOLUTION: "Computer Name" -> IP Address (local network)\n• NETWORK BROWSING: Finding computers in "Network Neighborhood"\n• SESSION ESTABLISHMENT: Setting up connections between applications' 
+          }
+        ]
+      },
+      {
+        title: "2. NBTSTAT Commands",
+        content: [
+          { type: 'text', value: 'The `nbtstat` utility is built into Windows for troubleshooting NetBIOS over TCP/IP.' },
+          { type: 'code', value: 'nbtstat -n', label: 'List Local NetBIOS Names' },
+          { type: 'code', value: 'nbtstat -A [IP Address]', label: 'Get Remote Table (by IP)' },
+          { type: 'code', value: 'nbtstat -a [NetBIOS Name]', label: 'Get Remote Table (by Name)' },
+          { type: 'code', value: 'nbtstat -c', label: 'List Cache' },
+          { type: 'code', value: 'nbtstat -R', label: 'Purge and Reload Cache' },
+          { type: 'code', value: 'nbtstat -RR', label: 'Release and Refresh WINS' }
+        ]
+      },
+      {
+        title: "3. Common NetBIOS Suffixes",
+        content: [
+          { type: 'text', value: 'The 16th byte of a NetBIOS name indicates the service type.' },
+          {
+            type: 'table',
+            headers: ['Suffix (Hex)', 'Service Type', 'Description'],
+            rows: [
+              ['**00**', 'Workstation', 'Hostname / Workstation Service'],
+              ['**20**', 'Server', 'File Sharing / Server Service'],
+              ['**1B**', 'Domain Master Browser', 'Primary Domain Controller'],
+              ['**1C**', 'Domain Controller', 'Active Directory'],
+              ['**1E**', 'Browser Service', 'Network Election participation'],
+              ['**03**', 'Messenger', 'Messenger Service (Legacy)']
+            ]
+          }
+        ]
+      },
+      {
+        title: "4. Enumeration Tools (Linux)",
+        content: [
+          { type: 'text', value: 'Tools commonly used in Penetration Testing and Auditing.' },
+          { type: 'code', value: 'nbtscan -r 192.168.1.0/24', label: 'Scan Subnet with nbtscan' },
+          { type: 'code', value: 'enum4linux -a [IP]', label: 'Enumerate User/Shares' },
+          { type: 'code', value: 'nmap -sU --script nbstat.nse -p 137 [target]', label: 'Nmap NetBIOS Script' }
+        ]
+      }
+    ]
+  },
+  jq: {
+    title: "JQ Cheat Sheet",
+    description: "A lightweight and flexible command-line JSON processor.",
+    sections: [
+      {
+        title: "Basic Filters",
+        content: [
+          { type: 'text', value: "The simplest filter is `.`, which is the identity filter, copying JQ's input to its output unmodified." },
+          { type: 'code', value: "echo '{\"foo\": \"bar\"}' | jq .", label: "Pretty Print JSON" },
+          { type: 'code', value: "jq .foo", label: "Access Key" },
+          { type: 'code', value: "jq .[0]", label: "Access Array Index" },
+          { type: 'code', value: "jq .foo.bar", label: "Chained Access" }
+        ]
+      },
+      {
+        title: "Working with Arrays",
+        content: [
+          { type: 'code', value: "jq .[]", label: "Iterate over Array/Object values" },
+          { type: 'code', value: "jq '.[0:2]'", label: "Slice Array" },
+          { type: 'code', value: "jq 'map(.foo)'", label: "Map values" },
+          { type: 'code', value: "jq 'map(select(.id > 2))'", label: "Select/Filter" }
+        ]
+      },
+      {
+        title: "Constructing JSON",
+        content: [
+          { type: 'code', value: "jq '{user: .name, title: .position}'", label: "Create new Object" },
+          { type: 'code', value: "jq '[.name, .position]'", label: "Create new Array" }
+        ]
+      },
+      {
+        title: "Common Operators",
+        content: [
+          {
+            type: 'table',
+            headers: ['Operator', 'Description'],
+            rows: [
+              ['**|**', 'Pipe output of one filter to the next'],
+              ['**,**', 'Output multiple results'],
+              ['**+**', 'Add numbers or append arrays/strings'],
+              ['**-**', 'Subtract numbers'],
+              ['**length**', 'Get length of string/array'],
+              ['**keys**', 'Get keys of object']
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  markdown: {
+    title: "Markdown Cheat Sheet",
+    description: "Syntax guide for the lightweight markup language.",
+    sections: [
+      {
+        title: "Basic Syntax",
+        content: [
+          { type: 'text', value: "Markdown allows you to write using an easy-to-read, easy-to-write plain text format." },
+          {
+            type: 'table',
+            headers: ['Element', 'Syntax', 'Result'],
+            rows: [
+              ['**Bold**', '`**text**`', '**text**'],
+              ['**Italic**', '`*text*`', 'text (italic)'],
+              ['**Strikethrough**', '`~~text~~`', 'text (crossed)'],
+              ['**Heading 1**', '`# Text`', 'Large Heading'],
+              ['**Heading 2**', '`## Text`', 'Medium Heading'],
+              ['**Link**', '`[title](https://...)`', 'Link']
+            ]
+          }
+        ]
+      },
+      {
+        title: "Code",
+        content: [
+          { type: 'text', value: "You can format code inline or as blocks." },
+          { type: 'code', value: '`inline code`', label: "Inline Code" },
+          { type: 'code', value: '```\nblock code\n```', label: "Block Code" },
+          { type: 'code', value: '```json\n{"key": "value"}\n```', label: "Syntax Highlighting" }
+        ]
+      },
+      {
+        title: "Lists",
+        content: [
+          {
+            type: 'table',
+            headers: ['List Type', 'Syntax'],
+            rows: [
+              ['**Unordered**', '`- Item` or `* Item`'],
+              ['**Ordered**', '`1. Item`'],
+              ['**Task List**', '`- [x] Task`']
+            ]
+          }
+        ]
+      },
+      {
+        title: "Blockquotes",
+        content: [
+          { type: 'text', value: "Use the `>` character for blockquotes." },
+          { type: 'code', value: '> This is a quote.', label: "Blockquote" }
+        ]
+      }
+    ]
+  },
   nmap: {
     title: "Nmap Cheat Sheet",
     description: "Reference guide for scanning networks with Nmap.",
@@ -30,7 +191,7 @@ export const cheatSheets: Record<string, CheatSheetData> = {
       {
         title: "Basic Scanning Techniques",
         content: [
-          { type: 'text', value: "The -s switch determines the type of scan to perform." },
+          { type: 'text', value: "The `-s` switch determines the type of scan to perform." },
           {
             type: 'table',
             headers: ['Nmap Switch', 'Description'],
@@ -94,7 +255,7 @@ export const cheatSheets: Record<string, CheatSheetData> = {
       {
         title: "Discovery Options",
         content: [
-          { type: 'text', value: 'Host Discovery. The -p switch determines the type of ping to perform.' },
+          { type: 'text', value: 'Host Discovery. The `-p` switch determines the type of ping to perform.' },
           {
             type: 'table',
             headers: ['Nmap Switch', 'Description'],
@@ -161,7 +322,7 @@ export const cheatSheets: Record<string, CheatSheetData> = {
       {
         title: "Timing and Performance",
         content: [
-          { type: 'text', value: "The -t switch determines the speed and stealth performed. Not specifying a T value will default to -T3, or normal speed." },
+          { type: 'text', value: "The `-t` switch determines the speed and stealth performed. Not specifying a `T` value will default to `-T3`, or normal speed." },
           {
             type: 'table',
             headers: ['Nmap Switch', 'Description'],
@@ -315,7 +476,7 @@ export const cheatSheets: Record<string, CheatSheetData> = {
       {
         title: "Interface Navigation",
         content: [
-          { type: 'text', value: "Access the GUI at http://localhost:3000 (Default login: admin/admin)." },
+          { type: 'text', value: "Access the GUI at `http://localhost:3000` (Default login: admin/admin)." },
           { type: 'note', value: "Check 'Flows' for real-time connections, 'Hosts' for device stats, and 'Interfaces' for throughput." }
         ]
       }
@@ -439,7 +600,7 @@ export const cheatSheets: Record<string, CheatSheetData> = {
       {
         title: "Basic Usage",
         content: [
-          { type: 'note', value: "Masscan uses its own TCP/IP stack. It needs --rate to be effective." },
+          { type: 'note', value: "Masscan uses its own TCP/IP stack. It needs `--rate` to be effective." },
           { type: 'code', value: 'masscan -p80 192.168.1.0/24', label: 'Scan Subnet for Port 80' },
           { type: 'code', value: 'masscan -p80,8000-8100 10.0.0.0/8', label: 'Scan Port Ranges' },
         ]
@@ -831,8 +992,8 @@ export const cheatSheets: Record<string, CheatSheetData> = {
       {
         title: "Logs",
         content: [
-          { type: 'text', value: "Default location: /var/log/suricata/" },
-          { type: 'text', value: "fast.log: Quick alerts. eve.json: Detailed JSON output." },
+          { type: 'text', value: "Default location: `/var/log/suricata/`" },
+          { type: 'text', value: "`fast.log`: Quick alerts. `eve.json`: Detailed JSON output." },
         ]
       }
     ]
@@ -852,7 +1013,7 @@ export const cheatSheets: Record<string, CheatSheetData> = {
       {
         title: "Rule Syntax",
         content: [
-          { type: 'text', value: "Format: [action] [proto] [src_ip] [src_port] -> [dst_ip] [dst_port] ([options])" },
+          { type: 'text', value: "Format: `[action] [proto] [src_ip] [src_port] -> [dst_ip] [dst_port] ([options])`" },
           { type: 'code', value: 'alert tcp any any -> 192.168.1.0/24 80 (msg:"Web Traffic"; sid:1000001;)', label: 'Example Rule' },
         ]
       },

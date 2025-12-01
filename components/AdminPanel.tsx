@@ -1,6 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Lock, Wand2, Save, Loader2, FileJson, CheckCircle, Database, Layout, Edit, Plus, Trash2, Code, Download, Upload } from 'lucide-react';
-import { CheatSheetData, Tool } from '../types';
+import { X, Lock, Wand2, Save, Loader2, FileJson, CheckCircle, Database, Layout, Edit, Plus, Trash2, Code, Download, Upload, FileType } from 'lucide-react';
+import { CheatSheetData, Tool, CheatSheetItem, CheatSheetSection } from '../types';
+import { CheatSheetViewer } from './CheatSheetViewer';
+
+// Removed static import
+// import { GoogleGenAI, Type } from "@google/genai";
 
 interface AdminPanelProps {
   onClose: () => void;
@@ -10,7 +14,224 @@ interface AdminPanelProps {
   setCheatSheets: (map: Record<string, CheatSheetData>) => void;
 }
 
-type TabType = 'metadata' | 'json' | 'ai';
+type TabType = 'metadata' | 'markdown' | 'json' | 'ai';
+
+// --- Helper Functions for Markdown Conversion ---
+
+const jsonToMarkdown = (data: CheatSheetData): string => {
+  if (!data) return '';
+  let md = `# ${data.title || 'Untitled'}\n\n${data.description || ''}\n\n`;
+
+  if (data.sections) {
+    data.sections.forEach(section => {
+      md += `## ${section.title}\n\n`;
+      if (section.content) {
+        section.content.forEach(item => {
+          if (item.type === 'text') {
+            md += `${item.value}\n\n`;
+          } else if (item.type === 'code') {
+            if (item.label) md += `### ${item.label}\n`;
+            md += `\`\`\`\n${item.value}\n\`\`\`\n\n`;
+          } else if (item.type === 'note') {
+            md += `> ${item.value}\n\n`;
+          } else if (item.type === 'table') {
+            if (item.headers && item.rows) {
+              md += `| ${item.headers.join(' | ')} |\n`;
+              md += `| ${item.headers.map(() => '---').join(' | ')} |\n`;
+              item.rows.forEach(row => {
+                md += `| ${row.join(' | ')} |\n`;
+              });
+              md += '\n';
+            }
+          } else if (item.type === 'links') {
+             if (item.links) {
+               item.links.forEach(link => {
+                 md += `- [${link.text}](${link.url})\n`;
+               });
+               md += '\n';
+             }
+          }
+        });
+      }
+    });
+  }
+  return md;
+};
+
+const markdownToJson = (md: string): CheatSheetData => {
+  const lines = md.split('\n');
+  const data: CheatSheetData = {
+    title: '',
+    description: '',
+    sections: []
+  };
+
+  let currentSection: CheatSheetSection | null = null;
+  let textBuffer: string[] = [];
+  let mode: 'text' | 'code' | 'table' = 'text';
+  let codeLabel = '';
+  
+  // Table state
+  let tableHeaders: string[] = [];
+  let tableRows: string[][] = [];
+
+  const flushBuffer = () => {
+    if (textBuffer.length === 0) return;
+    
+    const text = textBuffer.join('\n').trim();
+    if (!text) { textBuffer = []; return; }
+
+    // Check if it's a list of links
+    if (text.startsWith('- [') && text.includes('](')) {
+       const links = text.split('\n').map(l => {
+         const match = l.match(/- \[(.*?)\]\((.*?)\)/);
+         return match ? { text: match[1], url: match[2] } : null;
+       }).filter(Boolean) as {text: string, url: string}[];
+
+       if (links.length > 0 && currentSection) {
+         currentSection.content.push({ type: 'links', links });
+         textBuffer = [];
+         return;
+       }
+    }
+
+    if (!currentSection) {
+       // Description
+       if (!data.description) data.description = text;
+       else data.description += '\n' + text;
+    } else {
+       currentSection.content.push({ type: 'text', value: text });
+    }
+    textBuffer = [];
+  };
+
+  const flushTable = () => {
+    if (currentSection && tableHeaders.length > 0) {
+      currentSection.content.push({
+        type: 'table',
+        headers: tableHeaders,
+        rows: tableRows
+      });
+    }
+    tableHeaders = [];
+    tableRows = [];
+    mode = 'text';
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    // Title (H1)
+    if (line.startsWith('# ') && !line.startsWith('##')) {
+       data.title = line.substring(2).trim();
+       continue;
+    }
+
+    // Section (H2)
+    if (line.startsWith('## ')) {
+       if (mode === 'table') flushTable();
+       flushBuffer();
+       currentSection = {
+         title: line.substring(3).trim(),
+         content: []
+       };
+       data.sections.push(currentSection);
+       continue;
+    }
+
+    // Code Block
+    if (trimmed.startsWith('```')) {
+      if (mode === 'code') {
+        // End code block
+        if (currentSection) {
+          currentSection.content.push({
+            type: 'code',
+            value: textBuffer.join('\n'),
+            label: codeLabel
+          });
+        }
+        textBuffer = [];
+        mode = 'text';
+        codeLabel = '';
+      } else {
+        if (mode === 'table') flushTable();
+        flushBuffer();
+        mode = 'code';
+        // Check if previous line was a label (H3)
+        if (i > 0 && lines[i-1].startsWith('### ')) {
+           codeLabel = lines[i-1].substring(4).trim();
+           // Remove the label from the previous buffer or text item?
+           // The buffer would have already been flushed if we handle h3 correctly
+        }
+      }
+      continue;
+    }
+
+    if (mode === 'code') {
+      textBuffer.push(line);
+      continue;
+    }
+
+    // H3 (Label or Bold Text)
+    if (line.startsWith('### ')) {
+       if (mode === 'table') flushTable();
+       flushBuffer();
+       
+       // Look ahead for code block to treat this as a label
+       if (i + 1 < lines.length && lines[i+1].trim().startsWith('```')) {
+          codeLabel = line.substring(4).trim();
+       } else {
+          textBuffer.push(`**${line.substring(4).trim()}**`);
+       }
+       continue;
+    }
+
+    // Table Detection
+    if (trimmed.startsWith('|')) {
+       if (mode !== 'table') {
+         flushBuffer();
+         mode = 'table';
+         // Assume this is header
+         tableHeaders = trimmed.split('|').map(s => s.trim()).filter(s => s);
+       } else {
+         // Check if separator row
+         if (trimmed.includes('---')) continue;
+         // Body row
+         // Robust split for pipes
+         const cells = trimmed.split('|').slice(1, -1).map(s => s.trim());
+         tableRows.push(cells);
+       }
+       continue;
+    } else if (mode === 'table' && trimmed === '') {
+       flushTable();
+       continue;
+    }
+
+    // Note (Blockquote)
+    if (line.startsWith('> ')) {
+       if (mode === 'table') flushTable();
+       flushBuffer();
+       if (currentSection) {
+         currentSection.content.push({ type: 'note', value: line.substring(2).trim() });
+       }
+       continue;
+    }
+
+    // Regular Text
+    if (trimmed !== '') {
+       textBuffer.push(line);
+    } else {
+       if (textBuffer.length > 0) flushBuffer();
+    }
+  }
+
+  if (mode === 'table') flushTable();
+  flushBuffer();
+
+  return data;
+};
+
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, tools, setTools, cheatSheets, setCheatSheets }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -19,11 +240,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, tools, setTools
   // Selection State
   const [selectedToolId, setSelectedToolId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
-  const [activeTab, setActiveTab] = useState<TabType>('metadata');
+  const [activeTab, setActiveTab] = useState<TabType>('markdown'); // Default to Markdown
 
   // Editing State
   const [editTool, setEditTool] = useState<Tool | null>(null);
   const [editJson, setEditJson] = useState<string>('');
+  const [editMarkdown, setEditMarkdown] = useState<string>('');
   
   // AI State
   const [rawData, setRawData] = useState('');
@@ -44,13 +266,42 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, tools, setTools
       if (tool) {
         setEditTool({ ...tool });
         const sheet = cheatSheets[selectedToolId];
-        setEditJson(sheet ? JSON.stringify(sheet, null, 2) : '');
+        const jsonString = sheet ? JSON.stringify(sheet, null, 2) : '';
+        setEditJson(jsonString);
+        
+        // Convert existing JSON to Markdown for the editor
+        if (sheet) {
+           setEditMarkdown(jsonToMarkdown(sheet));
+        } else {
+           setEditMarkdown(`# ${tool.name}\n\n${tool.description}\n\n## Basic Usage\n\n`);
+        }
       }
     } else {
       setEditTool(null);
       setEditJson('');
+      setEditMarkdown('');
     }
   }, [selectedToolId, tools, cheatSheets]);
+
+  // Sync Markdown changes to JSON for preview/saving (When using Markdown Editor)
+  useEffect(() => {
+    if (activeTab === 'markdown' && editMarkdown) {
+      const parsed = markdownToJson(editMarkdown);
+      setEditJson(JSON.stringify(parsed, null, 2));
+    }
+  }, [editMarkdown, activeTab]);
+
+  // Sync JSON changes to Markdown (When using JSON Editor)
+  useEffect(() => {
+    if (activeTab === 'json' && editJson) {
+      try {
+        const parsed = JSON.parse(editJson);
+        setEditMarkdown(jsonToMarkdown(parsed));
+      } catch (e) {
+        // Invalid JSON while typing, skip markdown update until valid
+      }
+    }
+  }, [editJson, activeTab]);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -111,7 +362,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, tools, setTools
     };
     setTools([...tools, newTool]);
     setSelectedToolId(newId);
-    setActiveTab('metadata');
+    setEditMarkdown(`# New Tool\n\nDescription...\n\n## Section 1\n`);
+    setActiveTab('markdown');
   };
 
   // --- Global Export/Import ---
@@ -199,6 +451,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, tools, setTools
         const content = event.target?.result as string;
         const parsed = JSON.parse(content);
         setEditJson(JSON.stringify(parsed, null, 2));
+        setEditMarkdown(jsonToMarkdown(parsed));
       } catch (err) {
         alert('Error parsing JSON file. Please ensure it is valid JSON.');
       }
@@ -226,7 +479,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, tools, setTools
     setAiError(null);
 
     try {
-      // Dynamic import to prevent crash if module fails to load on initial render
+      // Dynamic import to prevent crash
       // @ts-ignore
       const { GoogleGenAI, Type } = await import("@google/genai");
 
@@ -278,8 +531,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, tools, setTools
       });
 
       if (response.text) {
-        setEditJson(JSON.stringify(JSON.parse(response.text), null, 2));
-        setActiveTab('json');
+        const parsed = JSON.parse(response.text);
+        setEditJson(JSON.stringify(parsed, null, 2));
+        setEditMarkdown(jsonToMarkdown(parsed));
+        setActiveTab('markdown');
       }
     } catch (err: any) {
       console.error(err);
@@ -308,12 +563,20 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, tools, setTools
     );
   }
 
+  // Preview Data derivation
+  let previewData: CheatSheetData | null = null;
+  try {
+    previewData = editJson ? JSON.parse(editJson) : null;
+  } catch (e) {
+    previewData = null;
+  }
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm animate-in fade-in zoom-in-95 duration-200">
-      <div className="bg-slate-50 w-[95vw] h-[90vh] rounded-2xl shadow-2xl flex overflow-hidden border border-slate-200">
+      <div className="bg-slate-50 w-[95vw] h-[95vh] rounded-2xl shadow-2xl flex overflow-hidden border border-slate-200">
         
         {/* Left Sidebar: Tool List */}
-        <div className="w-80 bg-white border-r border-slate-200 flex flex-col">
+        <div className="w-80 bg-white border-r border-slate-200 flex flex-col shrink-0">
           <div className="p-4 border-b border-slate-200">
             <div className="flex items-center justify-between mb-4">
                <h2 className="font-bold text-slate-800 flex items-center gap-2"><Database size={18}/> Tools</h2>
@@ -365,11 +628,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, tools, setTools
         </div>
 
         {/* Right Panel: Editor */}
-        <div className="flex-1 flex flex-col bg-slate-50/50">
+        <div className="flex-1 flex flex-col bg-slate-50/50 overflow-hidden">
           {selectedToolId && editTool ? (
             <>
               {/* Toolbar */}
-              <div className="bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between">
+              <div className="bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between shrink-0">
                 <div>
                    <h1 className="text-xl font-bold text-slate-800">{editTool.name}</h1>
                    <span className="text-xs font-mono text-slate-400">{editTool.id}</span>
@@ -385,7 +648,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, tools, setTools
               </div>
 
               {/* Tabs */}
-              <div className="flex px-6 border-b border-slate-200 bg-white">
+              <div className="flex px-6 border-b border-slate-200 bg-white shrink-0">
+                <button 
+                  onClick={() => setActiveTab('markdown')}
+                  className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'markdown' ? 'border-cyan-500 text-cyan-700' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                >
+                  <FileType size={16} /> Markdown Editor
+                </button>
                 <button 
                   onClick={() => setActiveTab('metadata')}
                   className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'metadata' ? 'border-cyan-500 text-cyan-700' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
@@ -396,7 +665,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, tools, setTools
                   onClick={() => setActiveTab('json')}
                   className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'json' ? 'border-cyan-500 text-cyan-700' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
                 >
-                  <Code size={16} /> Cheat Sheet JSON
+                  <Code size={16} /> JSON Source
                 </button>
                 <button 
                   onClick={() => setActiveTab('ai')}
@@ -407,18 +676,103 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, tools, setTools
               </div>
 
               {/* Tab Content */}
-              <div className="flex-1 overflow-y-auto p-6">
+              <div className="flex-1 overflow-hidden relative">
+                {activeTab === 'markdown' && (
+                  <div className="h-full flex flex-col md:flex-row">
+                    {/* Editor Side */}
+                    <div className="flex-1 flex flex-col border-r border-slate-200 h-1/2 md:h-full">
+                       <div className="bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-200 flex justify-between">
+                         <span>Editor</span>
+                         <span className="text-slate-400">Markdown Supported</span>
+                       </div>
+                       <textarea 
+                          value={editMarkdown}
+                          onChange={(e) => setEditMarkdown(e.target.value)}
+                          className="flex-1 w-full p-4 font-mono text-sm bg-white text-slate-800 resize-none outline-none leading-relaxed"
+                          placeholder="# Tool Title\n\nDescription...\n\n## Section 1\n..."
+                       />
+                    </div>
+                    {/* Preview Side */}
+                    <div className="flex-1 flex flex-col bg-slate-100 h-1/2 md:h-full overflow-hidden">
+                       <div className="bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-200">
+                         Live Preview
+                       </div>
+                       <div className="flex-1 overflow-y-auto custom-scrollbar p-4 relative">
+                         {previewData ? (
+                            <div className="bg-white rounded-xl shadow-sm border border-slate-200 min-h-full">
+                               <div className="p-6 border-b border-slate-100">
+                                  <h2 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+                                    {previewData.title || 'Untitled'}
+                                  </h2>
+                                  <p className="text-sm text-slate-500 mt-1">{previewData.description}</p>
+                               </div>
+                               <div className="p-6 space-y-8">
+                                  {previewData.sections.map((section, idx) => (
+                                     <div key={idx}>
+                                        <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-3">
+                                           <span className="flex items-center justify-center w-6 h-6 rounded bg-slate-800 text-white text-xs">{idx + 1}</span>
+                                           {section.title}
+                                        </h3>
+                                        <div className="grid gap-4">
+                                           {section.content.map((item, i) => (
+                                              <div key={i} className="text-sm">
+                                                 {item.type === 'text' && <div className="text-slate-600 whitespace-pre-wrap">{item.value}</div>}
+                                                 {item.type === 'code' && (
+                                                   <div className="bg-slate-900 text-slate-300 p-3 rounded-lg font-mono text-xs overflow-x-auto">
+                                                     {item.label && <div className="text-pink-400 text-[10px] uppercase mb-1">{item.label}</div>}
+                                                     $ {item.value}
+                                                   </div>
+                                                 )}
+                                                 {item.type === 'note' && (
+                                                   <div className="bg-amber-50 border-l-4 border-amber-400 p-3 text-amber-900 rounded-r">
+                                                     {item.value}
+                                                   </div>
+                                                 )}
+                                                 {item.type === 'table' && (
+                                                    <div className="overflow-x-auto border border-slate-200 rounded">
+                                                       <table className="w-full text-xs">
+                                                          <thead className="bg-slate-50 font-bold">
+                                                             <tr>{item.headers?.map(h => <th key={h} className="p-2 border-r last:border-0">{h}</th>)}</tr>
+                                                          </thead>
+                                                          <tbody>
+                                                             {item.rows?.map((r, ri) => <tr key={ri} className="border-t">{r.map((c, ci) => <td key={ci} className="p-2 border-r last:border-0">{c}</td>)}</tr>)}
+                                                          </tbody>
+                                                       </table>
+                                                    </div>
+                                                 )}
+                                                 {item.type === 'links' && (
+                                                    <div className="grid gap-2">
+                                                      {item.links?.map((l, li) => <a key={li} href={l.url} className="text-cyan-600 underline block">{l.text}</a>)}
+                                                    </div>
+                                                 )}
+                                              </div>
+                                           ))}
+                                        </div>
+                                     </div>
+                                  ))}
+                               </div>
+                            </div>
+                         ) : (
+                           <div className="flex items-center justify-center h-full text-slate-400">
+                             Start typing to see preview...
+                           </div>
+                         )}
+                       </div>
+                    </div>
+                  </div>
+                )}
+
                 {activeTab === 'metadata' && (
-                  <div className="max-w-2xl space-y-6 bg-white p-8 rounded-xl border border-slate-200 shadow-sm">
+                  <div className="max-w-2xl space-y-6 bg-white p-8 rounded-xl border border-slate-200 shadow-sm m-6">
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-semibold text-slate-700 mb-1">ID (Unique)</label>
+                        <label className="block text-sm font-semibold text-slate-700 mb-1">ID</label>
                         <input 
                            type="text" 
                            value={editTool.id} 
                            onChange={(e) => setEditTool({...editTool, id: e.target.value})}
                            className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-slate-50 font-mono text-sm"
-                           disabled // Keep ID consistent for now to avoid breaking map keys
+                           disabled 
                         />
                       </div>
                       <div>
@@ -453,7 +807,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, tools, setTools
                        />
                     </div>
                     <div>
-                       <label className="block text-sm font-semibold text-slate-700 mb-1">Tags (comma separated)</label>
+                       <label className="block text-sm font-semibold text-slate-700 mb-1">Tags</label>
                        <input 
                           type="text" 
                           value={editTool.tags.join(', ')} 
@@ -465,15 +819,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, tools, setTools
                 )}
 
                 {activeTab === 'json' && (
-                  <div className="h-full flex flex-col">
+                  <div className="h-full flex flex-col p-6">
                     <div className="flex justify-between items-center mb-4">
-                        <p className="text-sm text-slate-500">Edit raw JSON or import/export this sheet.</p>
+                        <p className="text-sm text-slate-500">Edit raw JSON or import/export this sheet. Changes here sync to Markdown.</p>
                         <div className="flex gap-2">
                            <button onClick={handleImportSingleJsonClick} className="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded text-xs font-semibold flex items-center gap-2">
-                             <Upload size={14} /> Import JSON
+                             <Upload size={14} /> Import
                            </button>
                            <button onClick={handleExportSingleJson} className="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded text-xs font-semibold flex items-center gap-2">
-                             <Download size={14} /> Export JSON
+                             <Download size={14} /> Export
                            </button>
                            <input 
                              type="file" 
@@ -494,9 +848,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, tools, setTools
                 )}
 
                 {activeTab === 'ai' && (
-                  <div className="max-w-3xl space-y-4">
+                  <div className="max-w-3xl space-y-4 p-6">
                     <div className="bg-blue-50 p-4 rounded-lg text-blue-800 text-sm mb-4">
-                      Paste documentation below. The AI will generate JSON and overwrite the "Cheat Sheet JSON" tab.
+                      Paste documentation below. The AI will generate JSON and overwrite the current cheat sheet.
                     </div>
                     <textarea
                       value={rawData}
