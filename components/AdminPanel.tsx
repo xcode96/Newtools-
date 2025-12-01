@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Lock, Wand2, Save, Loader2, FileJson, CheckCircle, Database, Layout, Edit, Plus, Trash2, Code, Download, Upload, FileType } from 'lucide-react';
+import { X, Lock, Wand2, Save, Loader2, FileJson, CheckCircle, Database, Layout, Edit, Plus, Trash2, Code, Download, Upload, FileType, FileCode } from 'lucide-react';
 import { CheatSheetData, Tool, CheatSheetItem, CheatSheetSection } from '../types';
 import { CheatSheetViewer } from './CheatSheetViewer';
 
@@ -387,6 +387,24 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, tools, setTools
     URL.revokeObjectURL(url);
   };
 
+  const handleDownloadSource = () => {
+    // Generate TypeScript file content
+    const tsContent = `
+import { CheatSheetData } from './types';
+
+export const cheatSheets: Record<string, CheatSheetData> = ${JSON.stringify(cheatSheets, null, 2)};
+`;
+    const blob = new Blob([tsContent], { type: 'text/plain' }); // plain text so browser handles as file
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'cheatSheets.ts';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   const handleImportClick = () => {
     fileInputRef.current?.click();
   };
@@ -624,6 +642,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, tools, setTools
                   className="hidden" 
                />
             </div>
+            
+            <button onClick={handleDownloadSource} className="w-full py-2 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition-colors mt-2">
+                 <FileCode size={14} /> Download Source (.ts)
+            </button>
           </div>
         </div>
 

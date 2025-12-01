@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Copy, Terminal, ChevronRight, ExternalLink, AlertCircle, Home, FolderOpen, List, ChevronDown } from 'lucide-react';
+import { X, Copy, ChevronRight, ExternalLink, AlertCircle, Home, FolderOpen, ChevronDown, List } from 'lucide-react';
 import { CheatSheetData, CheatSheetItem } from '../types';
 
 interface CheatSheetViewerProps {
@@ -64,7 +64,7 @@ const ContentRenderer: React.FC<{ item: CheatSheetItem }> = ({ item }) => {
   switch (item.type) {
     case 'text':
       return (
-        <div className="text-slate-600 mb-4 leading-relaxed max-w-4xl text-base">
+        <div className="text-slate-600 mb-4 leading-relaxed text-base max-w-full">
           <MarkdownText text={item.value || ''} />
         </div>
       );
@@ -118,7 +118,7 @@ const ContentRenderer: React.FC<{ item: CheatSheetItem }> = ({ item }) => {
                     <th 
                       key={i} 
                       className={`px-6 py-3 font-extrabold uppercase text-xs tracking-wider border-r last:border-r-0 border-slate-200 ${
-                        i === 0 ? 'w-1/3 sm:w-1/4' : 'w-auto'
+                        i === 0 ? 'w-1/4' : 'w-auto'
                       }`}
                     >
                       {h}
@@ -175,152 +175,170 @@ const ContentRenderer: React.FC<{ item: CheatSheetItem }> = ({ item }) => {
 };
 
 export const CheatSheetViewer: React.FC<CheatSheetViewerProps> = ({ data, onClose }) => {
-  // Track expanded sections. Default: Index 0 is expanded, others closed.
+  // Initialize with the first section (index 0) expanded
   const [expandedSections, setExpandedSections] = useState<Set<number>>(new Set([0]));
 
-  const toggleSection = (idx: number) => {
+  const toggleSection = (index: number) => {
     const newExpanded = new Set(expandedSections);
-    if (newExpanded.has(idx)) {
-      newExpanded.delete(idx); // Collapse
+    if (newExpanded.has(index)) {
+      newExpanded.delete(index);
     } else {
-      newExpanded.add(idx); // Expand
+      newExpanded.add(index);
     }
     setExpandedSections(newExpanded);
   };
 
-  const scrollToSection = (idx: number) => {
-    // If hidden, expand it first
-    if (!expandedSections.has(idx)) {
-      const newExpanded = new Set(expandedSections);
-      newExpanded.add(idx);
-      setExpandedSections(newExpanded);
+  const scrollToSection = (id: string, index: number) => {
+    // Ensure section is expanded before scrolling
+    if (!expandedSections.has(index)) {
+        const newExpanded = new Set(expandedSections);
+        newExpanded.add(index);
+        setExpandedSections(newExpanded);
     }
-
-    // Delay slightly to allow render to happen if it was collapsed
+    
+    // Small delay to allow render
     setTimeout(() => {
-      const el = document.getElementById(`section-${idx}`);
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-    }, 50);
+        const element = document.getElementById(id);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }, 10);
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+    // Replaced modal classes with fixed full-screen classes
+    <div className="fixed inset-0 z-[100] bg-white flex flex-col animate-in fade-in duration-200">
       
-      <div className="bg-white w-full h-full md:w-[95vw] md:h-[95vh] md:rounded-2xl shadow-2xl shadow-black/20 border-0 md:border border-white/20 flex flex-col overflow-hidden relative">
-        
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-white shrink-0 z-20 shadow-sm">
+        {/* Header - Sticky and Full Width */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-white/95 backdrop-blur-sm z-30 shadow-sm shrink-0">
           <div className="flex flex-col gap-1">
              {/* Breadcrumbs */}
-             <div className="flex items-center gap-2 text-xs font-semibold text-slate-400 mb-1">
+             <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 mb-1">
                 <button onClick={onClose} className="flex items-center gap-1 hover:text-cyan-600 transition-colors">
-                  <Home size={12} className="text-slate-300" />
+                  <Home size={12} className="text-slate-400" />
                   <span>Home</span>
                 </button>
-                <ChevronRight size={10} />
+                <ChevronRight size={10} className="text-slate-300" />
                 <button onClick={onClose} className="flex items-center gap-1 hover:text-cyan-600 transition-colors">
-                  <FolderOpen size={12} className="text-slate-300" />
+                  <FolderOpen size={12} className="text-slate-400" />
                   <span>Tools</span>
                 </button>
-                <ChevronRight size={10} />
-                <span className="text-cyan-600 bg-cyan-50 px-1.5 py-0.5 rounded">{data.title}</span>
+                <ChevronRight size={10} className="text-slate-300" />
+                <span className="text-cyan-700 bg-cyan-50 border border-cyan-100 px-2 py-0.5 rounded-full">{data.title}</span>
              </div>
 
              <div className="flex items-center gap-4">
                 <h2 className="text-xl font-black text-slate-900 tracking-tight">
                   {data.title}
                 </h2>
-                <div className="hidden sm:block h-6 w-px bg-slate-200"></div>
-                <p className="hidden sm:block text-sm text-slate-500 font-medium truncate max-w-lg">{data.description}</p>
+                <div className="hidden sm:block h-5 w-px bg-slate-200"></div>
+                <p className="hidden sm:block text-sm text-slate-500 font-medium truncate max-w-2xl">{data.description}</p>
              </div>
           </div>
           
           <div className="flex items-center gap-4">
-             <div className="hidden lg:flex items-center gap-2 text-xs font-semibold text-slate-400 bg-slate-100 px-3 py-1.5 rounded-md border border-slate-200">
-              <span className="font-sans">ESC</span> to close
+             <div className="hidden lg:flex items-center gap-2 text-xs font-semibold text-slate-500 bg-slate-50 px-3 py-1.5 rounded-md border border-slate-200">
+              <span className="font-sans font-bold">ESC</span> to close
             </div>
             <button 
               onClick={onClose}
-              className="p-2.5 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all hover:scale-110 active:scale-95"
+              className="p-2.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all border border-transparent hover:border-slate-200"
               aria-label="Close"
             >
-              <X size={26} />
+              <X size={24} />
             </button>
           </div>
         </div>
 
-        {/* Layout: Sidebar + Content */}
-        <div className="flex-1 flex overflow-hidden bg-slate-50/50">
+        {/* Layout: Content + Sidebar */}
+        <div className="flex flex-1 overflow-hidden bg-slate-50/50">
           
-          {/* Main Content */}
-          <div className="flex-1 overflow-y-auto custom-scrollbar p-6 md:p-10 scroll-smooth" id="scroll-container">
-            <div className="max-w-5xl mx-auto space-y-6 pb-24">
-              {data.sections.map((section, idx) => (
-                <div key={idx} id={`section-${idx}`} className="relative group scroll-mt-6 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden transition-all duration-300">
-                  
-                  {/* Section Title (Clickable) */}
-                  <div 
-                    onClick={() => toggleSection(idx)}
-                    className="flex items-center justify-between px-6 py-5 cursor-pointer hover:bg-slate-50 select-none transition-colors"
-                  >
-                    <h3 className="text-lg font-bold text-slate-900 flex items-center gap-4">
-                      <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-slate-800 to-slate-900 text-white font-mono text-sm font-bold shadow-md ring-4 ring-white">
-                        {idx + 1}
-                      </span>
-                      <span className="bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-700">
-                        {section.title}
-                      </span>
-                    </h3>
-                    <div className={`p-2 rounded-full bg-slate-100 text-slate-400 transition-transform duration-300 ${expandedSections.has(idx) ? 'rotate-180' : 'rotate-0'}`}>
-                      <ChevronDown size={20} />
-                    </div>
-                  </div>
-                  
-                  {/* Collapsible Content */}
-                  <div className={`transition-all duration-300 ease-in-out ${expandedSections.has(idx) ? 'max-h-[5000px] opacity-100 border-t border-slate-100' : 'max-h-0 opacity-0'}`}>
-                    <div className="p-6 md:p-8 grid grid-cols-1 xl:grid-cols-2 gap-x-12 gap-y-4">
-                      {section.content.map((item, i) => (
-                        <div key={i} className={item.type === 'table' || item.type === 'links' || (item.type === 'text' && item.value?.length && item.value.length > 120) ? 'col-span-1 xl:col-span-2' : 'col-span-1'}>
-                            <ContentRenderer item={item} />
+          {/* Main Content Area */}
+          <div className="flex-1 overflow-y-auto custom-scrollbar p-6 md:p-12 scroll-smooth">
+            {/* Increased max-width to 6xl for better full-screen usage */}
+            <div className="max-w-6xl mx-auto space-y-4 pb-32">
+              
+              {data.sections.map((section, idx) => {
+                const isExpanded = expandedSections.has(idx);
+                return (
+                  <div id={`section-${idx}`} key={idx} className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm transition-all duration-300 hover:shadow-md">
+                    {/* Collapsible Header */}
+                    <button 
+                      onClick={() => toggleSection(idx)}
+                      className={`w-full text-left px-6 md:px-8 py-5 flex items-center justify-between group transition-colors ${isExpanded ? 'bg-white' : 'bg-slate-50/50 hover:bg-slate-50'}`}
+                    >
+                      <div className="flex items-center gap-4">
+                        <span className={`flex items-center justify-center w-8 h-8 rounded-lg font-mono text-sm font-bold transition-colors ${isExpanded ? 'bg-slate-900 text-white shadow-lg shadow-indigo-500/20' : 'bg-slate-200 text-slate-600'}`}>
+                          {idx + 1}
+                        </span>
+                        <h3 className={`text-lg md:text-xl font-bold transition-colors ${isExpanded ? 'text-slate-900' : 'text-slate-600 group-hover:text-slate-800'}`}>
+                          {section.title}
+                        </h3>
+                      </div>
+                      <div className={`p-2 rounded-full transition-all duration-300 ${isExpanded ? 'bg-slate-100 rotate-180 text-slate-900' : 'text-slate-400 group-hover:bg-white'}`}>
+                        <ChevronDown size={20} />
+                      </div>
+                    </button>
+                    
+                    {/* Content */}
+                    {isExpanded && (
+                      <div className="px-6 md:px-8 pb-8 pt-2 border-t border-slate-100 animate-in slide-in-from-top-2 duration-200">
+                        {/* Improved Grid: 2 cols on large screens, single on small */}
+                        <div className="grid grid-cols-1 xl:grid-cols-2 gap-x-10 gap-y-8">
+                          {section.content.map((item, i) => (
+                            <div key={i} className={item.type === 'table' || item.type === 'links' || (item.type === 'text' && item.value?.length && item.value.length > 150) ? 'col-span-1 xl:col-span-2' : 'col-span-1'}>
+                                <ContentRenderer item={item} />
+                            </div>
+                          ))}
                         </div>
-                      ))}
-                    </div>
+                      </div>
+                    )}
                   </div>
+                );
+              })}
 
-                </div>
-              ))}
             </div>
           </div>
 
-          {/* TOC Sidebar (Right) */}
-          <div className="hidden lg:block w-64 bg-white border-l border-slate-200 p-6 overflow-y-auto custom-scrollbar shrink-0">
-             <div className="flex items-center gap-2 mb-4 text-xs font-bold text-slate-400 uppercase tracking-wider">
-               <List size={14} />
-               Table of Contents
-             </div>
-             <nav className="space-y-1">
-               {data.sections.map((section, idx) => (
-                 <button
-                   key={idx}
-                   onClick={() => scrollToSection(idx)}
-                   className={`block w-full text-left px-3 py-2 text-sm rounded-lg transition-colors truncate ${
-                     !expandedSections.has(idx) 
-                      ? 'text-slate-400 hover:text-cyan-600 hover:bg-slate-50' 
-                      : 'text-cyan-700 bg-cyan-50 font-medium'
-                   }`}
-                   title={section.title}
-                 >
-                   <span className={`font-mono text-xs mr-2 ${!expandedSections.has(idx) ? 'text-slate-300' : 'text-cyan-400'}`}>{idx + 1}.</span>
-                   {section.title}
-                 </button>
-               ))}
-             </nav>
+          {/* Right Sidebar: Table of Contents - Hidden on smaller laptops, visible on large screens */}
+          <div className="hidden xl:block w-72 shrink-0 border-l border-slate-200 bg-white overflow-y-auto custom-scrollbar p-6 z-20 shadow-[min(-10px,0)_0_20px_rgba(0,0,0,0.02)]">
+            <div className="sticky top-0">
+              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-6 flex items-center gap-2">
+                <List size={14} />
+                Table of Contents
+              </h4>
+              <div className="space-y-1 relative">
+                {/* Visual Connector Line */}
+                <div className="absolute left-[19px] top-2 bottom-2 w-px bg-slate-100"></div>
+
+                {data.sections.map((section, idx) => {
+                  const isActive = expandedSections.has(idx);
+                  return (
+                    <button
+                      key={idx}
+                      onClick={() => scrollToSection(`section-${idx}`, idx)}
+                      className={`group relative w-full text-left py-2.5 pl-10 pr-4 rounded-lg text-sm font-medium transition-all duration-200 z-10 flex items-center ${
+                        isActive 
+                          ? 'bg-cyan-50 text-cyan-700' 
+                          : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+                      }`}
+                    >
+                      {/* Dot indicator */}
+                      <div className={`absolute left-4 w-2 h-2 rounded-full border-2 transition-all duration-300 ${
+                        isActive 
+                          ? 'border-cyan-500 bg-cyan-500 scale-110' 
+                          : 'border-slate-300 bg-white group-hover:border-slate-400'
+                      }`}></div>
+                      
+                      <span className="truncate">{section.title}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
+
         </div>
-        
-      </div>
     </div>
   );
 };
