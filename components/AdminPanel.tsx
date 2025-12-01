@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Lock, Wand2, Save, Loader2, FileJson, CheckCircle, Database, Layout, Edit, Plus, Trash2, Code, Download, Upload } from 'lucide-react';
-import { GoogleGenAI, Type } from "@google/genai";
 import { CheatSheetData, Tool } from '../types';
 
 interface AdminPanelProps {
@@ -78,8 +77,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, tools, setTools
         const newCheatSheets = { ...cheatSheets, [editTool.id]: parsedData };
         setCheatSheets(newCheatSheets);
       } else {
-        // If JSON is empty, maybe we should delete the cheat sheet? 
-        // For now, let's just not update it or remove it if it existed.
         const newCheatSheets = { ...cheatSheets };
         delete newCheatSheets[editTool.id];
         setCheatSheets(newCheatSheets);
@@ -201,7 +198,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, tools, setTools
       try {
         const content = event.target?.result as string;
         const parsed = JSON.parse(content);
-        // Pretty print it back to the editor
         setEditJson(JSON.stringify(parsed, null, 2));
       } catch (err) {
         alert('Error parsing JSON file. Please ensure it is valid JSON.');
@@ -230,6 +226,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, tools, setTools
     setAiError(null);
 
     try {
+      // Dynamic import to prevent crash if module fails to load on initial render
+      // @ts-ignore
+      const { GoogleGenAI, Type } = await import("@google/genai");
+
       const ai = new GoogleGenAI({ apiKey });
       const prompt = `
         Convert the following documentation into the CheatSheet JSON format for the tool "${editTool?.name}".
@@ -279,11 +279,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, tools, setTools
 
       if (response.text) {
         setEditJson(JSON.stringify(JSON.parse(response.text), null, 2));
-        setActiveTab('json'); // Switch to JSON tab to view result
+        setActiveTab('json');
       }
     } catch (err: any) {
       console.error(err);
-      setAiError('Generation failed. Please try again or check your API key.');
+      setAiError(`Generation failed: ${err.message || 'Unknown error'}. Check console for details.`);
     } finally {
       setIsGenerating(false);
     }
