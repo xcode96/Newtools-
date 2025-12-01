@@ -12,16 +12,26 @@ export const ToolCard: React.FC<ToolCardProps> = ({ tool, hasCheatSheet, onViewC
   const isCLI = tool.type.toLowerCase().includes('cli');
   const isGUI = tool.type.toLowerCase().includes('gui');
 
-  const handleGuideClick = () => {
+  const handleGuideClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
     // Fallback to google search
     const query = encodeURIComponent(`${tool.name} full guide documentation`);
     window.open(`https://www.google.com/search?q=${query}`, '_blank');
   };
 
+  const handleTitleClick = () => {
+    if (hasCheatSheet && onViewCheatSheet) {
+      onViewCheatSheet();
+    }
+  };
+
   return (
     <div className="group relative bg-white border border-slate-200 rounded-xl p-5 hover:border-cyan-500/50 hover:shadow-xl hover:shadow-cyan-900/5 transition-all duration-300 flex flex-col h-full">
       <div className="flex justify-between items-start mb-3">
-        <h3 className="text-xl font-bold text-slate-900 group-hover:text-cyan-600 transition-colors font-mono tracking-tight">
+        <h3 
+          onClick={handleTitleClick}
+          className={`text-xl font-bold text-slate-900 font-mono tracking-tight transition-colors ${hasCheatSheet ? 'cursor-pointer hover:text-cyan-600 hover:underline decoration-cyan-300 underline-offset-4' : ''}`}
+        >
           {tool.name}
         </h3>
         <div className="flex gap-2">

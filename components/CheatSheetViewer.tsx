@@ -1,6 +1,5 @@
-
-import React from 'react';
-import { X, Copy, Terminal, ChevronRight, ExternalLink, AlertCircle } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, Copy, Terminal, ChevronRight, ExternalLink, AlertCircle, Home, FolderOpen, List, ChevronDown } from 'lucide-react';
 import { CheatSheetData, CheatSheetItem } from '../types';
 
 interface CheatSheetViewerProps {
@@ -176,26 +175,66 @@ const ContentRenderer: React.FC<{ item: CheatSheetItem }> = ({ item }) => {
 };
 
 export const CheatSheetViewer: React.FC<CheatSheetViewerProps> = ({ data, onClose }) => {
+  // Track expanded sections. Default: Index 0 is expanded, others closed.
+  const [expandedSections, setExpandedSections] = useState<Set<number>>(new Set([0]));
+
+  const toggleSection = (idx: number) => {
+    const newExpanded = new Set(expandedSections);
+    if (newExpanded.has(idx)) {
+      newExpanded.delete(idx); // Collapse
+    } else {
+      newExpanded.add(idx); // Expand
+    }
+    setExpandedSections(newExpanded);
+  };
+
+  const scrollToSection = (idx: number) => {
+    // If hidden, expand it first
+    if (!expandedSections.has(idx)) {
+      const newExpanded = new Set(expandedSections);
+      newExpanded.add(idx);
+      setExpandedSections(newExpanded);
+    }
+
+    // Delay slightly to allow render to happen if it was collapsed
+    setTimeout(() => {
+      const el = document.getElementById(`section-${idx}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 50);
+  };
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
       
       <div className="bg-white w-full h-full md:w-[95vw] md:h-[95vh] md:rounded-2xl shadow-2xl shadow-black/20 border-0 md:border border-white/20 flex flex-col overflow-hidden relative">
         
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100 bg-white shrink-0 z-20 shadow-sm">
-          <div className="flex items-center gap-5">
-            <div className="p-3 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 rounded-xl shadow-lg shadow-purple-500/20 text-white transform rotate-3">
-              <Terminal size={28} />
-            </div>
-            <div>
-              <h2 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-3">
-                {data.title}
-                <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold uppercase tracking-wider shadow-sm">
-                  Cheat Sheet
-                </span>
-              </h2>
-              <p className="text-sm text-slate-500 mt-1 font-medium">{data.description}</p>
-            </div>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-white shrink-0 z-20 shadow-sm">
+          <div className="flex flex-col gap-1">
+             {/* Breadcrumbs */}
+             <div className="flex items-center gap-2 text-xs font-semibold text-slate-400 mb-1">
+                <button onClick={onClose} className="flex items-center gap-1 hover:text-cyan-600 transition-colors">
+                  <Home size={12} className="text-slate-300" />
+                  <span>Home</span>
+                </button>
+                <ChevronRight size={10} />
+                <button onClick={onClose} className="flex items-center gap-1 hover:text-cyan-600 transition-colors">
+                  <FolderOpen size={12} className="text-slate-300" />
+                  <span>Tools</span>
+                </button>
+                <ChevronRight size={10} />
+                <span className="text-cyan-600 bg-cyan-50 px-1.5 py-0.5 rounded">{data.title}</span>
+             </div>
+
+             <div className="flex items-center gap-4">
+                <h2 className="text-xl font-black text-slate-900 tracking-tight">
+                  {data.title}
+                </h2>
+                <div className="hidden sm:block h-6 w-px bg-slate-200"></div>
+                <p className="hidden sm:block text-sm text-slate-500 font-medium truncate max-w-lg">{data.description}</p>
+             </div>
           </div>
           
           <div className="flex items-center gap-4">
@@ -212,33 +251,72 @@ export const CheatSheetViewer: React.FC<CheatSheetViewerProps> = ({ data, onClos
           </div>
         </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-6 md:p-10 scroll-smooth bg-slate-50/50">
-          <div className="max-w-7xl mx-auto space-y-16 pb-24">
-            {data.sections.map((section, idx) => (
-              <div key={idx} className="relative group">
-                {/* Decoration Line */}
-                <div className="absolute left-0 top-10 bottom-0 w-1 bg-gradient-to-b from-slate-200 to-transparent group-hover:from-cyan-400/30 transition-all hidden xl:block -ml-8 rounded-full"></div>
-                
-                {/* Section Title */}
-                <h3 className="text-xl font-bold text-slate-900 mb-8 flex items-center gap-4 sticky top-0 bg-slate-50/95 backdrop-blur-md py-4 -my-4 z-10 w-full border-b border-transparent group-hover:border-slate-200/50 transition-colors rounded-xl px-2">
-                  <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-slate-800 to-slate-900 text-white font-mono text-sm font-bold shadow-md ring-4 ring-white">
-                    {idx + 1}
-                  </span>
-                  <span className="bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-700">
-                    {section.title}
-                  </span>
-                </h3>
-                
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-x-12 gap-y-4 px-2">
-                   {section.content.map((item, i) => (
-                     <div key={i} className={item.type === 'table' || item.type === 'links' || (item.type === 'text' && item.value?.length && item.value.length > 120) ? 'col-span-1 xl:col-span-2' : 'col-span-1'}>
-                        <ContentRenderer item={item} />
-                     </div>
-                   ))}
+        {/* Layout: Sidebar + Content */}
+        <div className="flex-1 flex overflow-hidden bg-slate-50/50">
+          
+          {/* Main Content */}
+          <div className="flex-1 overflow-y-auto custom-scrollbar p-6 md:p-10 scroll-smooth" id="scroll-container">
+            <div className="max-w-5xl mx-auto space-y-6 pb-24">
+              {data.sections.map((section, idx) => (
+                <div key={idx} id={`section-${idx}`} className="relative group scroll-mt-6 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden transition-all duration-300">
+                  
+                  {/* Section Title (Clickable) */}
+                  <div 
+                    onClick={() => toggleSection(idx)}
+                    className="flex items-center justify-between px-6 py-5 cursor-pointer hover:bg-slate-50 select-none transition-colors"
+                  >
+                    <h3 className="text-lg font-bold text-slate-900 flex items-center gap-4">
+                      <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-slate-800 to-slate-900 text-white font-mono text-sm font-bold shadow-md ring-4 ring-white">
+                        {idx + 1}
+                      </span>
+                      <span className="bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-700">
+                        {section.title}
+                      </span>
+                    </h3>
+                    <div className={`p-2 rounded-full bg-slate-100 text-slate-400 transition-transform duration-300 ${expandedSections.has(idx) ? 'rotate-180' : 'rotate-0'}`}>
+                      <ChevronDown size={20} />
+                    </div>
+                  </div>
+                  
+                  {/* Collapsible Content */}
+                  <div className={`transition-all duration-300 ease-in-out ${expandedSections.has(idx) ? 'max-h-[5000px] opacity-100 border-t border-slate-100' : 'max-h-0 opacity-0'}`}>
+                    <div className="p-6 md:p-8 grid grid-cols-1 xl:grid-cols-2 gap-x-12 gap-y-4">
+                      {section.content.map((item, i) => (
+                        <div key={i} className={item.type === 'table' || item.type === 'links' || (item.type === 'text' && item.value?.length && item.value.length > 120) ? 'col-span-1 xl:col-span-2' : 'col-span-1'}>
+                            <ContentRenderer item={item} />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
+          </div>
+
+          {/* TOC Sidebar (Right) */}
+          <div className="hidden lg:block w-64 bg-white border-l border-slate-200 p-6 overflow-y-auto custom-scrollbar shrink-0">
+             <div className="flex items-center gap-2 mb-4 text-xs font-bold text-slate-400 uppercase tracking-wider">
+               <List size={14} />
+               Table of Contents
+             </div>
+             <nav className="space-y-1">
+               {data.sections.map((section, idx) => (
+                 <button
+                   key={idx}
+                   onClick={() => scrollToSection(idx)}
+                   className={`block w-full text-left px-3 py-2 text-sm rounded-lg transition-colors truncate ${
+                     !expandedSections.has(idx) 
+                      ? 'text-slate-400 hover:text-cyan-600 hover:bg-slate-50' 
+                      : 'text-cyan-700 bg-cyan-50 font-medium'
+                   }`}
+                   title={section.title}
+                 >
+                   <span className={`font-mono text-xs mr-2 ${!expandedSections.has(idx) ? 'text-slate-300' : 'text-cyan-400'}`}>{idx + 1}.</span>
+                   {section.title}
+                 </button>
+               ))}
+             </nav>
           </div>
         </div>
         
