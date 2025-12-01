@@ -218,11 +218,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, tools, setTools
       setAiError('Please provide raw data');
       return;
     }
+    
+    // Safety check for API Key presence
+    const apiKey = process.env.API_KEY;
+    if (!apiKey) {
+      setAiError('API Key is not configured in the environment variables (process.env.API_KEY). AI features will not work.');
+      return;
+    }
+
     setIsGenerating(true);
     setAiError(null);
 
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const ai = new GoogleGenAI({ apiKey });
       const prompt = `
         Convert the following documentation into the CheatSheet JSON format for the tool "${editTool?.name}".
         Return ONLY the JSON.
@@ -274,7 +282,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, tools, setTools
         setActiveTab('json'); // Switch to JSON tab to view result
       }
     } catch (err: any) {
-      setAiError('Generation failed.');
+      console.error(err);
+      setAiError('Generation failed. Please try again or check your API key.');
     } finally {
       setIsGenerating(false);
     }

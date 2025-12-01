@@ -7,6 +7,9 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <script>
+      // Polyfill for process.env to avoid ReferenceError in browser environments (e.g. Vercel static)
+      window.process = window.process || { env: {} };
+      
       tailwind.config = {
         theme: {
           extend: {
